@@ -9,87 +9,45 @@ This guide will help you build an automated PR review system using N8N that inte
 GitHub Webhook → Get PR Details → Get File Changes → Generate Review → Format Comments → Submit Review
 ```
 
-## Step 1: GitHub PR Trigger Setup
+## Step 1: GitHub PR Webhook & Filter
 
-### 1.1 GitHub Webhook Configuration
+### 1.1 GitHub Webhook Setup
 - **Event**: `pull_request` (opened, synchronize, reopened)
 - **Content Type**: `application/json`
-- **Secret**: Generate a secure webhook secret
 
-### 1.2 N8N Webhook Node Configuration
+### 1.2 N8N Webhook Node
 ```json
 {
   "httpMethod": "POST",
   "path": "github-pr-webhook",
-  "responseMode": "responseNode",
-  "options": {
-    "rawBody": true
-  }
+  "responseMode": "responseNode"
 }
 ```
 
-### 1.3 Webhook Payload Structure
-The webhook will receive this structure:
-```json
-{
-  "action": "opened|synchronize|reopened",
-  "pull_request": {
-    "number": 123,
-    "title": "PR Title",
-    "body": "PR Description",
-    "head": {
-      "sha": "commit_sha",
-      "ref": "branch_name"
-    },
-    "base": {
-      "ref": "main"
-    },
-    "user": {
-      "login": "username"
-    }
-  },
-  "repository": {
-    "name": "repo_name",
-    "owner": {
-      "login": "owner_name"
-    }
-  }
+### 1.3 Filter PR State (`filter_pr_state.js`)
+```javascript
+// Only proceed if there are comments to submit
+const data = $input.first().json;
+const hasComments = data.comments && data.comments.length > 0;
+
+if (hasComments) {
+  console.log(`Found ${data.comments.length} comments to submit`);
+  return $input.all();
+} else {
+  console.log('No comments to submit, skipping...');
+  return [];
 }
 ```
 
-## Step 2: Get File Changes Request
+## Step 2: Get File Changes
 
-### 2.1 GitHub API Endpoints Used
-- **Get PR Files**: `GET /repos/{owner}/{repo}/pulls/{pull_number}/files`
-- **Get PR Details**: `GET /repos/{owner}/{repo}/pulls/{pull_number}`
-
-### 2.2 N8N HTTP Request Node Configuration
-```json
-{
-  "method": "GET",
-  "url": "https://api.github.com/repos/{{$json.repository.owner.login}}/{{$json.repository.name}}/pulls/{{$json.pull_request.number}}/files",
-  "headers": {
-    "Authorization": "Bearer {{$credentials.githubToken}}",
-    "Accept": "application/vnd.github.v3+json",
-    "User-Agent": "N8N-PR-Review-Bot"
-  }
-}
-```
-
-### 2.3 File Changes Data Structure
-```json
-[
-  {
-    "sha": "file_sha",
-    "filename": "src/example.js",
-    "status": "modified|added|removed|renamed",
-    "additions": 10,
-    "deletions": 5,
-    "changes": 15,
-    "patch": "@@ -1,3 +1,3 @@\n- old line\n+ new line\n unchanged line"
-  }
-]
-```
+### 2.1 HTTP Request Node
+- **Method**: GET
+- **URL**: `{{ $json.body.pull_request.url }}/files`
+- **Example**: `https://api.github.com/repos/Sekompos-Company/HuhuvAdmin/pulls/177/files`
+- **Headers**: 
+  - `Authorization`: `Bearer {{ $credentials.githubToken }}`
+  - `Accept`: `application/vnd.github.v3+json`
 
 ## Step 3: Review Prompt Template
 
