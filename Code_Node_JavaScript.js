@@ -125,5 +125,3 @@ return {
     processedCount: filesArray.length
   }
 };
-
-
