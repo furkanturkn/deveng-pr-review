@@ -38,25 +38,7 @@ reviewData.comments.forEach(comment => {
   });
 });
 
-// Create review body
-const reviewBody = `## 🤖 Automated Code Review\n\n${reviewData.overall_review}\n\n**Files Reviewed**: ${Object.keys(commentsByFile).length}\n**Total Comments**: ${reviewData.comments.length}`;
-
-// Determine review state based on comments
-function determineReviewState(commentsCount) {
-  if (commentsCount === 0) {
-    return 'APPROVE'; // Approve if no issues found
-  } else if (commentsCount <= 3) {
-    return 'COMMENT'; // Comment for minor issues
-  } else {
-    return 'REQUEST_CHANGES'; // Request changes for major issues
-  }
-}
-
-const reviewState = determineReviewState(reviewData.comments.length);
-
 return {
-  reviewBody: reviewBody,
-  reviewState: reviewState,
   commentsByFile: commentsByFile,
   totalComments: reviewData.comments.length,
   filesReviewed: Object.keys(commentsByFile).length,

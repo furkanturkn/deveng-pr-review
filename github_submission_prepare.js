@@ -1,17 +1,11 @@
 // Get the processed review data
 const reviewData = $input.first().json;
 const prData = reviewData.prData;
-""
+
 // Extract repository info
 const owner = prData.repository.owner.login;
 const repo = prData.repository.name;
 const pullNumber = prData.pull_request.number;
-
-// Prepare the main review submission
-const mainReviewPayload = {
-  body: reviewData.reviewBody,
-  event: reviewData.reviewState
-};
 
 // Prepare individual comments for submission
 const commentsToSubmit = [];
@@ -30,18 +24,10 @@ Object.keys(reviewData.commentsByFile).forEach(filePath => {
   });
 });
 
-// Create submission URLs
-const reviewUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/reviews`;
+// Create submission URL
 const commentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}/comments`;
 
 return {
-  // Main review submission
-  mainReview: {
-    url: reviewUrl,
-    method: 'POST',
-    payload: mainReviewPayload
-  },
-  
   // Individual comments submission
   comments: commentsToSubmit.map(comment => ({
     url: commentsUrl,
