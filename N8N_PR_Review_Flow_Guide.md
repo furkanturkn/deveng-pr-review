@@ -49,60 +49,86 @@ if (hasComments) {
   - `Authorization`: `Bearer {{ $credentials.githubToken }}`
   - `Accept`: `application/vnd.github.v3+json`
 
-## Step 3: Review Prompt Template
+## Step 3: Add Review Prompt (`add_review_prompt.js`)
 
-### 3.1 System Prompt
-```
-You are an expert code reviewer. Analyze the provided code changes and provide constructive feedback focusing on:
+### 3.1 Code Node - Prompt Generation
+```javascript
+// Get the file changes data
+const fileChanges = $input.first().json;
+const prData = $('GitHub Trigger').first().json.body;
 
-1. Code Quality & Best Practices
-2. Security Vulnerabilities
-3. Performance Issues
-4. Maintainability
-5. Testing Coverage
-6. Documentation
+// Ensure fileChanges is an array
+let filesArray = [];
+if (Array.isArray(fileChanges)) {
+    filesArray = fileChanges;
+} else if (fileChanges && Array.isArray(fileChanges.files)) {
+    filesArray = fileChanges.files;
+} else {
+    filesArray = [];
+}
 
-Provide specific, actionable feedback with line numbers and suggestions for improvement.
-```
+// Create system prompt with Kotlin/Android rules
+const systemPrompt = `You are an expert Kotlin/Android code reviewer. Analyze the provided code changes according to these specific rules:
 
-### 3.2 User Prompt Template
-```
-Please review the following pull request:
+# ✅ AI PR Check Ruleset for Kotlin Projects
 
-**PR Title**: {{$json.pull_request.title}}
-**PR Description**: {{$json.pull_request.body}}
-**Files Changed**: {{$json.files.length}} files
+## 📐 Kotlin Style Guidelines
+- **Rule 1**: Indentation: 4 spaces (no tabs), End of line: LF (Line Feed)
+- **Rule 2**: When using \`!!\` operator, add an inline comment explaining why it's safe
+
+## 🏷 Naming Conventions
+- **Rule 3**: Classes & Interfaces: PascalCase, don't prefix interfaces with 'I'
+- **Rule 4**: Functions: camelCase, verb-based (loadUserData, processPayment)
+- **Rule 5**: Variables: camelCase, noun-based (userName, isLoading)
+- **Rule 6**: Constants: SCREAMING_SNAKE_CASE (MAX_RETRY_COUNT, DEFAULT_TIMEOUT_MS)
+- **Rule 7**: Packages: lowercase with dot separation
+- **Rule 8**: Resource names MUST include module prefix
+
+Focus on these specific rules and provide actionable feedback with line numbers.`;
+
+// Create user prompt with file changes
+let userPrompt = `Please review the following pull request according to the Kotlin/Android rules above:
+
+**PR Title**: ${prData.pull_request.title}
+**PR Description**: ${prData.pull_request.body || 'No description provided'}
+**Files Changed**: ${filesArray.length} files
+**Total Changes**: +${prData.pull_request.additions} additions, -${prData.pull_request.deletions} deletions
 
 **Code Changes**:
-{{#each $json.files}}
-**File**: {{filename}}
-**Status**: {{status}}
-**Changes**: +{{additions}} -{{deletions}}
+`;
 
-```diff
-{{patch}}
-```
+// Add each file's changes to the prompt
+filesArray.forEach((file, index) => {
+  userPrompt += `
+**File ${index + 1}**: ${file.filename}
+**Status**: ${file.status}
+**Changes**: +${file.additions} -${file.deletions}
 
-{{/each}}
+\`\`\`diff
+${file.patch || 'No patch available (renamed file)'}
+\`\`\`
+`;
+});
 
-Please provide a detailed review with specific comments for each file, including:
-- Line-specific feedback
-- Code quality suggestions
-- Security concerns
-- Performance optimizations
-- Best practices recommendations
-
-Format your response as JSON with the following structure:
+userPrompt += `
+Format your response as JSON:
 {
-  "overall_review": "General feedback about the PR",
   "comments": [
     {
       "path": "file_path",
       "line": line_number,
-      "body": "Specific feedback for this line"
+      "body": "Specific feedback referencing the rule number"
     }
   ]
-}
+}`;
+
+return {
+  systemPrompt: systemPrompt,
+  userPrompt: userPrompt,
+  fileCount: filesArray.length,
+  totalChanges: prData.pull_request.additions + prData.pull_request.deletions,
+  prTitle: prData.pull_request.title
+};
 ```
 
 ## Step 4: OpenAI Integration

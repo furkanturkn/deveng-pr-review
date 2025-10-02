@@ -104,7 +104,6 @@ Please provide a detailed review focusing on the specific Kotlin/Android rules a
 
 Format your response as JSON:
 {
-  "overall_review": "General feedback about the PR",
   "comments": [
     {
       "path": "file_path",
