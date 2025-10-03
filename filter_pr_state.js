@@ -1,12 +1,9 @@
-// Only proceed if there are comments to submit
-const data = $input.first().json;
-const hasComments = data.comments && data.comments.length > 0;
+// Only process if PR was opened or reopened
+const prAction = $input.first().json.body.action;
 
-if (hasComments) {
-  console.log(`Found ${data.comments.length} comments to submit`);
+if (prAction === 'opened' || prAction === 'reopened') {
   return $input.all();
 } else {
-  // Skip sending comments if none exist
-  console.log('No comments to submit, skipping...');
+  // Skip processing for other actions
   return [];
 }
